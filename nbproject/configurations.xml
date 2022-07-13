@@ -787,8 +787,6 @@
         <property key="memories.programmemory" value="true"/>
         <property key="memories.programmemory.ranges" value="0-3fff"/>
         <property key="poweroptions.powerenable" value="true"/>
-        <property key="programmerToGoFilePath"
-                  value="E:/My docs/YandexDisk/YandexDisk/mcu_projects/USB_1Wire_bridge_fw003.X/debug/default/USB_1Wire_bridge_fw003_ptg"/>
         <property key="programmerToGoImageName" value="USB_1Wire_bridge_fw003_ptg"/>
         <property key="programoptions.donoteraseauxmem" value="false"/>
         <property key="programoptions.eraseb4program" value="true"/>

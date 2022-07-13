@@ -80,36 +80,12 @@
 
 #define MAX_COUNTS 48
 
+int temps[8];
 char ROM_NO[8][8];
 unsigned char devNum = 0;
 
 void putch(unsigned char byte) {
     send_cdc_buf(&byte, 1);
-}
-
-void int2str(int d, char* s, uint8_t lim, uint8_t min){
-    unsigned char l, i, c;
-    int t;
-    t=d;
-    c=0;
-    if (d!=0){
-        while(t!=0){
-            t/=10;
-            c++;
-        }
-    } else c=1;
-    if (c<min) c=min;
-    if (c>lim) c=lim;
-    if (d<0){
-        *(s-c)='-';
-        d=abs(d);
-    } else s--; // *(s-c)='+';
-        
-    for(i = 0; i != c; i++){
-        l=(d % 10) + 0x30;
-        d/=10;
-        *s--=l;
-    }
 }
 
 int ds18b20_convert(int temp){
@@ -137,30 +113,27 @@ void __interrupt isr(void){
 
 void usb_cdc_callback(uint8_t* buf, uint8_t len){
     if (buf[0] == 'l'){
-        if (devNum > 0) {
+        LED1_TOGGLE
+        printf("Detected %i devices\r\n", devNum);
         for (int i = 0; i != devNum; i++) {
-            printf("%i %x:%x:%x:%x:%x:%x:%x:%x\r\n",
-                    i,
-                    (int)ROM_NO[0][i], 
-                    (int)ROM_NO[1][i], 
-                    (int)ROM_NO[2][i],
-                    (int)ROM_NO[3][i],
-                    (int)ROM_NO[4][i],
-                    (int)ROM_NO[5][i],
-                    (int)ROM_NO[6][i],
-                    (int)ROM_NO[7][i]);
-        }
-        } else {
-            printf("No sensors detected!");
+            printf("%i %X:%X:%X:%X:%X:%X:%X:%X\r\n", i,
+                (int)ROM_NO[0][i], 
+                (int)ROM_NO[1][i], 
+                (int)ROM_NO[2][i],
+                (int)ROM_NO[3][i],
+                (int)ROM_NO[4][i],
+                (int)ROM_NO[5][i],
+                (int)ROM_NO[6][i],
+                (int)ROM_NO[7][i]);
         }
     }
-    if (buf[0] == 'a') {
-        printf("Designed by Roman Grinev JUL/2018\r\n");
+     if (buf[0] == 'a') {
+        printf("Designed by Roman Grinev JUL/2022\r\n");
     }
 }
 
 void main(void) {
-    uint32_t i = 0;
+    uint32_t c = 0;
     int dtemp = 0;
     int flag_no_sensor = 0;
     int itemp = 0;
@@ -184,24 +157,25 @@ void main(void) {
     LED2_OFF
     LED3_OFF
     while(1) {
-        i++;
-        if (i == 2000000){
+        c++;
+        if (c == 2000000) {
             LED2_ON
-            if (get_temp(&dtemp) == 0) {
-                flag_no_sensor = 0;
-                //dtemp = 0x019A;
-                itemp = ds18b20_convert(dtemp);
-                 //  val=val*(1-K)+itemp*K;
-                 //  itemp=(int)val;
-                int f = itemp % 10;
-                itemp = itemp/10;
-                printf("temp %i.%i C\r\n", itemp, f);
-            } 
-            else{
-                flag_no_sensor=1;
-                printf("No sensor detected!");
-            }
-            i = 0;
+            for (int i = 0; i != devNum; i++) {
+                if (get_temp_by_ROM(ROM_NO, &dtemp, i) == 0) {
+                    flag_no_sensor = 0;
+                    //dtemp = 0x019A;
+                    itemp = ds18b20_convert(dtemp);
+                    //  val=val*(1-K)+itemp*K;
+                    //  itemp=(int)val;
+                    unsigned int f = itemp % 10;
+                    itemp = itemp / 10;
+                    printf("%i %i.%i C\r\n", i, itemp, f);
+                } else {
+                    flag_no_sensor = 1;
+                    printf("Error reading the sensor");
+                }
+            }    
+            c = 0;
             LED2_OFF
         }
     }

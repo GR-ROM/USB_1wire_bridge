@@ -18,7 +18,7 @@ extern "C" {
 void init_1wire();
 char get_temp(int* temp);
 char set_mode();
-char get_temp_by_ROM(uint8_t ROM_NO[8], int* temp);
+char get_temp_by_ROM(uint8_t ROM_NO[8][8], int* temp, int index);
 char OW_search(uint8_t ROM_NO[8][2]);
 
 #ifdef	__cplusplus

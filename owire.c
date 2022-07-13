@@ -126,9 +126,9 @@ char OW_search(uint8_t ROM_NO[8][8]) {
             OW_write_bit(fbit);
             if (fbit) ROM_NO[bitnum >> 3][devnum] |= 1 << (bitnum & 0x07); else ROM_NO[bitnum >> 3][devnum] &= ~(1 << (bitnum & 0x07));
         }
-        if (curcoll == 0) return devnum;
+        if (curcoll == 0) return devnum + 1;
     }
-    return devnum;
+    return devnum + 1;
 }
 
 char set_mode() {
@@ -143,23 +143,23 @@ char set_mode() {
     }
 }
 
-char get_temp_by_ROM(uint8_t ROM_NO[8], int* temp) {
+char get_temp_by_ROM(uint8_t ROM_NO[8][8], int* temp, int index) {
     uint8_t tl, th;
     if (OW_reset()) {
         set_baudrate(uspbrghigh, ubrghhigh);
         OW_write_byte(0x55);
-        OW_write_byte(ROM_NO[0]);
-        OW_write_byte(ROM_NO[1]);
-        OW_write_byte(ROM_NO[2]);
-        OW_write_byte(ROM_NO[3]);
+        OW_write_byte(ROM_NO[0][index]);
+        OW_write_byte(ROM_NO[1][index]);
+        OW_write_byte(ROM_NO[2][index]);
+        OW_write_byte(ROM_NO[3][index]);
         
-        OW_write_byte(ROM_NO[4]);
-        OW_write_byte(ROM_NO[5]);
-        OW_write_byte(ROM_NO[6]);
-        OW_write_byte(ROM_NO[7]);
+        OW_write_byte(ROM_NO[4][index]);
+        OW_write_byte(ROM_NO[5][index]);
+        OW_write_byte(ROM_NO[6][index]);
+        OW_write_byte(ROM_NO[7][index]);
         OW_write_byte(0xBE);
-        tl=OW_read_byte();
-        th=OW_read_byte();
+        tl = OW_read_byte();
+        th = OW_read_byte();
         OW_read_byte();
         OW_read_byte();
         OW_read_byte();
@@ -167,6 +167,7 @@ char get_temp_by_ROM(uint8_t ROM_NO[8], int* temp) {
         OW_read_byte();
         OW_read_byte();
         OW_reset();
+        set_baudrate(uspbrghigh, ubrghhigh);
         OW_write_byte(0xCC);
         OW_write_byte(0x44);
         

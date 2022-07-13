@@ -14,18 +14,16 @@
 
 #endif
 
-char ROM_NO[8][2];
-
 char ubrghlow, ubrghhigh;
 uint16_t uspbrglow, uspbrghigh;
 
-void init_1wire(){
-    uspbrglow=calc_baudrate(9600, &ubrghlow);
-    uspbrghigh=calc_baudrate(115200, &ubrghhigh);
+void init_1wire() {
+    uspbrglow = calc_baudrate(9600, &ubrghlow);
+    uspbrghigh = calc_baudrate(115200, &ubrghhigh);
     init_usart(9600);
 }
 
-uint8_t OW_reset(){
+uint8_t OW_reset() {
     uint8_t i;
 #if defined(USE_BITBANG)
     OW_HIGH
@@ -50,14 +48,14 @@ uint8_t OW_reset(){
 #if defined(USE_USART)
     set_baudrate(uspbrglow, ubrghlow);
     usart_put_char(0xF0);
-    i=usart_get_char();
+    i = usart_get_char();
     if (i == 0xF0) return 0;
     return 1;
 #endif
     
 }
 
-void OW_write_bit(uint8_t b){
+void OW_write_bit(uint8_t b) {
 #ifdef USE_BITBANG
     OW_LOW
     __delay_us(2);
@@ -70,7 +68,7 @@ void OW_write_bit(uint8_t b){
 #endif
 }
 
-uint8_t OW_read_bit(){
+uint8_t OW_read_bit() {
 #ifdef USE_BITBANG
     OW_LOW
     __delay_us(1);
@@ -86,48 +84,49 @@ uint8_t OW_read_bit(){
 #endif  
 }
 
-void OW_write_byte(uint8_t b){
+void OW_write_byte(uint8_t b) {
     uint8_t i;
-    for (i=0;i!=8;i++){
+    for (i = 0; i != 8; i++){
         OW_write_bit(b & 0x01);
-        b>>=1;
+        b >>= 1;
     }
 }
 
-uint8_t OW_read_byte(){
+uint8_t OW_read_byte() {
     uint8_t i, b;
     b = 0;
-    for (i=0;i!=8;i++){   
+    for (i = 0; i != 8; i++){   
         b>>=1;
         if (OW_read_bit()) b|=0x80;
     }
     return b;
 }
 
-char OW_search(){
+char OW_search(uint8_t ROM_NO[8][8]) {
     uint8_t devnum, bitnum, lastcoll, curcoll, fbit, cbit;
-    lastcoll=0;
-    for (devnum=0;devnum!=2;devnum++){
-        curcoll=0;
+    lastcoll = 0;
+    for (devnum = 0; devnum != 8; devnum++){
+        curcoll = 0;
         if (!OW_reset()) return 0;
+        set_baudrate(uspbrghigh, ubrghhigh);
         OW_write_byte(0xF0);
-        for(bitnum=0;bitnum!=64;bitnum++){
-            fbit=OW_read_bit();
-            cbit=OW_read_bit();
-            if (fbit==cbit){ // collision detected
-                if (fbit==1) return 0;
-                curcoll=bitnum;
-                if (lastcoll>bitnum){
+        for (bitnum = 0; bitnum != 64; bitnum++){
+            fbit = OW_read_bit();
+            cbit = OW_read_bit();
+            if (fbit == cbit){ // collision detected
+                if (fbit == 1) return 0;
+                curcoll = bitnum;
+                if (lastcoll > bitnum) {
                     if (ROM_NO[bitnum>>3][devnum-1] & 1<<(bitnum & 0x07)) fbit=1; else fbit=0;
                 }
-                if (lastcoll<bitnum) fbit=0;
-                if (lastcoll==bitnum) fbit=1;
-                lastcoll=curcoll;
+                if (lastcoll < bitnum) fbit=0;
+                if (lastcoll == bitnum) fbit=1;
+                lastcoll = curcoll;
             }
             OW_write_bit(fbit);
-            if (fbit) ROM_NO[bitnum>>3][devnum]|=1<<(bitnum & 0x07); else ROM_NO[bitnum>>3][devnum]&=~(1<<(bitnum & 0x07));
+            if (fbit) ROM_NO[bitnum >> 3][devnum] |= 1 << (bitnum & 0x07); else ROM_NO[bitnum >> 3][devnum] &= ~(1 << (bitnum & 0x07));
         }
-        if (curcoll==0) return devnum;
+        if (curcoll == 0) return devnum;
     }
     return devnum;
 }
@@ -144,20 +143,20 @@ char set_mode() {
     }
 }
 
-char get_temp_by_ROM(int* temp, int idx){
+char get_temp_by_ROM(uint8_t ROM_NO[8], int* temp) {
     uint8_t tl, th;
     if (OW_reset()) {
         set_baudrate(uspbrghigh, ubrghhigh);
         OW_write_byte(0x55);
-        OW_write_byte(ROM_NO[0][idx]);
-        OW_write_byte(ROM_NO[1][idx]);
-        OW_write_byte(ROM_NO[2][idx]);
-        OW_write_byte(ROM_NO[3][idx]);
+        OW_write_byte(ROM_NO[0]);
+        OW_write_byte(ROM_NO[1]);
+        OW_write_byte(ROM_NO[2]);
+        OW_write_byte(ROM_NO[3]);
         
-        OW_write_byte(ROM_NO[4][idx]);
-        OW_write_byte(ROM_NO[5][idx]);
-        OW_write_byte(ROM_NO[6][idx]);
-        OW_write_byte(ROM_NO[7][idx]);
+        OW_write_byte(ROM_NO[4]);
+        OW_write_byte(ROM_NO[5]);
+        OW_write_byte(ROM_NO[6]);
+        OW_write_byte(ROM_NO[7]);
         OW_write_byte(0xBE);
         tl=OW_read_byte();
         th=OW_read_byte();
@@ -183,8 +182,8 @@ char get_temp(int* temp) {
         set_baudrate(uspbrghigh, ubrghhigh);
         OW_write_byte(0xCC);
         OW_write_byte(0xBE);
-        tl=OW_read_byte();
-        th=OW_read_byte();
+        tl = OW_read_byte();
+        th = OW_read_byte();
         OW_read_byte();
         OW_read_byte();
         OW_read_byte();
@@ -195,7 +194,7 @@ char get_temp(int* temp) {
         set_baudrate(uspbrghigh, ubrghhigh);
         OW_write_byte(0xCC);
         OW_write_byte(0x44);
-        *temp=(th<<8) | tl;
+        *temp = (th << 8) | tl;
         return 0;
     }
     return -1;

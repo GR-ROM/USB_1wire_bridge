@@ -8,7 +8,7 @@
 #define CDC_READY 0
 #define CDC_BUSY 1
 
-#define FIFO_SIZE 16
+#define FIFO_SIZE 64
 
 uint8_t cdc_state;
 

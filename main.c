@@ -80,6 +80,9 @@
 
 #define MAX_COUNTS 48
 
+char ROM_NO[8][8];
+unsigned char devNum = 0;
+
 void putch(unsigned char byte) {
     send_cdc_buf(&byte, 1);
 }
@@ -102,8 +105,8 @@ void int2str(int d, char* s, uint8_t lim, uint8_t min){
         d=abs(d);
     } else s--; // *(s-c)='+';
         
-    for(i=0;i!=c;i++){
-        l=(d%10)+0x30;
+    for(i = 0; i != c; i++){
+        l=(d % 10) + 0x30;
         d/=10;
         *s--=l;
     }
@@ -111,14 +114,14 @@ void int2str(int d, char* s, uint8_t lim, uint8_t min){
 
 int ds18b20_convert(int temp){
     int fract;
-    fract=temp & 0x000F;
-    temp&=0xFFF0;
-    temp=temp>>4;
-    if (temp & 0x8000) temp|=0xF000;
-    fract*=6; // LSB weight is 0.06 == rounded 0.0625
-    temp*=100;
-    temp+=fract;
-    temp/=10;
+    fract = temp & 0x000F;
+    temp &= 0xFFF0;
+    temp = temp >> 4;
+    if (temp & 0x8000) temp |= 0xF000;
+    fract *= 6; // LSB weight is 0.06 == rounded 0.0625
+    temp *= 100;
+    temp += fract;
+    temp /= 10;
   //  fract=temp*0.625;
    // fract=temp*625;
    // fract=fract/1000;
@@ -133,10 +136,25 @@ void __interrupt isr(void){
 }
 
 void usb_cdc_callback(uint8_t* buf, uint8_t len){
-    if (buf[0]=='l'){
-        LED3_TOGGLE
+    if (buf[0] == 'l'){
+        if (devNum > 0) {
+        for (int i = 0; i != devNum; i++) {
+            printf("%i %x:%x:%x:%x:%x:%x:%x:%x\r\n",
+                    i,
+                    (int)ROM_NO[0][i], 
+                    (int)ROM_NO[1][i], 
+                    (int)ROM_NO[2][i],
+                    (int)ROM_NO[3][i],
+                    (int)ROM_NO[4][i],
+                    (int)ROM_NO[5][i],
+                    (int)ROM_NO[6][i],
+                    (int)ROM_NO[7][i]);
+        }
+        } else {
+            printf("No sensors detected!");
+        }
     }
-    if (buf[0]=='a') {
+    if (buf[0] == 'a') {
         printf("Designed by Roman Grinev JUL/2018\r\n");
     }
 }
@@ -153,18 +171,21 @@ void main(void) {
     ANSELH = 0;
     CM1CON0 = 0;
     CM2CON0 = 0;
+    
     init_usb();
     init_cdc();
     GIE = 1;
     PEIE = 1;
+    
     init_1wire();
+    devNum = OW_search(ROM_NO);
     set_mode();
     LED1_OFF
     LED2_OFF
     LED3_OFF
     while(1) {
         i++;
-        if (i==2000000){
+        if (i == 2000000){
             LED2_ON
             if (get_temp(&dtemp) == 0) {
                 flag_no_sensor = 0;
@@ -172,8 +193,8 @@ void main(void) {
                 itemp = ds18b20_convert(dtemp);
                  //  val=val*(1-K)+itemp*K;
                  //  itemp=(int)val;
-                int f=itemp % 10;
-                itemp=itemp/10;
+                int f = itemp % 10;
+                itemp = itemp/10;
                 printf("temp %i.%i C\r\n", itemp, f);
             } 
             else{

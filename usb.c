@@ -24,12 +24,8 @@
 #define BD_BASE_ADDR 0x200
 #define BD_DATA_ADDR 0x280
 
-#define EP0 0
-#define EP1 1
-#define EP2 2
-
 volatile BD_endpoint_t endpoints[EP_NUM_MAX] __at(BD_BASE_ADDR);
-volatile uint8_t ep_data_buffer[64] __at(BD_DATA_ADDR);
+volatile uint8_t ep_data_buffer[128] __at(BD_DATA_ADDR);
 USB_SETUP_t* usb_setup;
 
 static uint8_t dev_addr;
@@ -413,7 +409,14 @@ void usb_poll() {
                         usbEngageEndpointOut(1, EP1_BUFF_SIZE);
                     break;
                     case IN_PID: 
-                        usbEngageEndpointIn(1, handle_cdc_in());
+                        handle_cdc_in();
+                    break;
+                }
+            break;
+            case 2:
+                switch (PID) {
+                    case IN_PID: 
+                        usbEngageEndpointIn(2, 0);
                     break;
                 }
             break;

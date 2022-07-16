@@ -8,7 +8,7 @@
 #define CDC_READY 0
 #define CDC_BUSY 1
 
-#define FIFO_SIZE 64
+#define FIFO_SIZE 32
 
 uint8_t cdc_state;
 
@@ -19,14 +19,12 @@ typedef struct fifo {
     uint16_t count;
 } cfifo_t;
 
-char txbuf[8];
-
 cfifo_t fifo_in, fifo_out;
 
 extern void usb_cdc_callback(uint8_t* buf, uint8_t len);
 
 static volatile LineCoding_t line;
-extern uint8_t ep_data_buffer[64];
+extern uint8_t ep_data_buffer[128];
 extern BD_endpoint_t endpoints[EP_NUM_MAX];
 
 int put_fifo(cfifo_t* fifo, uint8_t* d, uint8_t len) {
@@ -120,8 +118,10 @@ void send_cdc_buf(uint8_t* buf, uint8_t len) {
 uint8_t handle_cdc_in() {
     uint8_t pkt_len = MIN(fifo_in.count, EP1_BUFF_SIZE);
     if (pkt_len > 0) {
-        get_fifo(&fifo_in, &txbuf[0], pkt_len);
-        copyPacketToEp(1, &txbuf[0], pkt_len);
+        get_fifo(&fifo_in, &ep_data_buffer[EP1_IN_OFFSET], pkt_len);
+        usbEngageEndpointIn(1, pkt_len);
+    } else {
+        usbEngageEndpointIn(1, 0);
     }
     return pkt_len;
 }

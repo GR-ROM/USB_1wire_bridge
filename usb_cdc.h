@@ -111,11 +111,9 @@ typedef struct LineCoding{
 /* Line Coding Structure */
 #define LINE_CODING_LENGTH          0x07
 
-typedef union _CONTROL_SIGNAL_BITMAP
-{
+typedef union _CONTROL_SIGNAL_BITMAP {
     uint8_t _byte;
-    struct
-    {
+    struct {
         unsigned DTE_PRESENT;       // [0] Not Present  [1] Present
         unsigned CARRIER_CONTROL;   // [0] Deactivate   [1] Activate
     };
@@ -125,8 +123,7 @@ typedef union _CONTROL_SIGNAL_BITMAP
 /* Functional Descriptor Structure - See CDC Specification 1.1 for details */
 
 /* Header Functional Descriptor */
-typedef struct _USB_CDC_HEADER_FN_DSC
-{
+typedef struct _USB_CDC_HEADER_FN_DSC {
     uint8_t bFNLength;
     uint8_t bDscType;
     uint8_t bDscSubType;
@@ -134,8 +131,7 @@ typedef struct _USB_CDC_HEADER_FN_DSC
 } USB_CDC_HEADER_FN_DSC;
 
 /* Abstract Control Management Functional Descriptor */
-typedef struct _USB_CDC_ACM_FN_DSC
-{
+typedef struct _USB_CDC_ACM_FN_DSC {
     uint8_t bFNLength;
     uint8_t bDscType;
     uint8_t bDscSubType;
@@ -143,8 +139,7 @@ typedef struct _USB_CDC_ACM_FN_DSC
 } USB_CDC_ACM_FN_DSC;
 
 /* Union Functional Descriptor */
-typedef struct _USB_CDC_UNION_FN_DSC
-{
+typedef struct _USB_CDC_UNION_FN_DSC {
     uint8_t bFNLength;
     uint8_t bDscType;
     uint8_t bDscSubType;
@@ -153,8 +148,7 @@ typedef struct _USB_CDC_UNION_FN_DSC
 } USB_CDC_UNION_FN_DSC;
 
 /* Call Management Functional Descriptor */
-typedef struct _USB_CDC_CALL_MGT_FN_DSC
-{
+typedef struct _USB_CDC_CALL_MGT_FN_DSC {
     uint8_t bFNLength;
     uint8_t bDscType;
     uint8_t bDscSubType;

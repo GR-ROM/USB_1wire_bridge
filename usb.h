@@ -259,8 +259,6 @@ enum setupRequestType
 
 #define _STAT_MASK  0xFF
 
-#define EP2_BUFF_SIZE 8
-#define EP1_BUFF_SIZE 8
 #define EP0_BUFF_SIZE 8 
 #define EP_NUM_MAX 3
     
@@ -344,11 +342,11 @@ typedef enum {
     WAIT_SETUP
 } TRANSACTION_STAGE;  
 
-#define EP_NUM_MAX 3
+#define EP0 0
+#define EP1 1
+#define EP2 2
 
 #define EP0_BUFF_SIZE 8
-#define EP1_BUFF_SIZE 8
-#define EP2_BUFF_SIZE 8
 
 #if defined(NO_PING_PONG)
 #define EP0_OUT_OFFSET 0
@@ -381,7 +379,6 @@ void usbEngageEndpointIn(uint8_t ep, uint8_t len);
 void ctl_send(uint8_t* data, uint16_t len);
 void ctl_recv(char* data, uint16_t len);
 void copyPacketToEp(uint8_t ep, uint8_t *buf, uint8_t len);
-//int HID_rxbuffer(char* buf, uint8_t len); replaced by the callback!
 
 #ifdef	__cplusplus
 }

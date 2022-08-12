@@ -18,9 +18,9 @@ extern "C" {
     
         
 #define EP2_BUFF_SIZE 8
-#define EP1_BUFF_SIZE 8
+#define EP1_BUFF_SIZE 64
 #define EP0_BUFF_SIZE 8 
-#define EP_NUM_MAX 3
+#define EP_NUM_MAX 8
 #define CDC_DEVICE                  0x02    
     
 /* Device Descriptor */

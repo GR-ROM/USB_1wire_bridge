@@ -8,7 +8,7 @@
 #define CDC_READY 0
 #define CDC_BUSY 1
 
-#define FIFO_SIZE 32
+#define FIFO_SIZE 112
 
 uint8_t cdc_state;
 
@@ -25,7 +25,7 @@ extern void usb_cdc_callback(uint8_t* buf, uint8_t len);
 
 static volatile LineCoding_t line;
 extern uint8_t ep_data_buffer[128];
-extern BD_endpoint_t endpoints[EP_NUM_MAX];
+extern BD_entry_t endpoints[EP_NUM_MAX];
 
 int put_fifo(cfifo_t* fifo, uint8_t* d, uint8_t len) {
     int t;
@@ -62,14 +62,23 @@ int get_fifo(cfifo_t* fifo, uint8_t* d, uint8_t len) {
 }
 
 void cdc_init_endpoints() {
-    configureEndpointIn(1, &ep_data_buffer[EP1_IN_OFFSET], EP1_BUFF_SIZE);
-    configureEndpointOut(1, &ep_data_buffer[EP1_OUT_OFFSET], EP1_BUFF_SIZE);
-    configureEndpointIn(2, &ep_data_buffer[EP2_IN_OFFSET], EP2_BUFF_SIZE);
+//    configureEp(EP1_OUT_EVEN, &ep_data_buffer[EP1_OUT_EVEN_OFFSET], EP1_BUFF_SIZE);
+//    configureEp(EP1_OUT_ODD, &ep_data_buffer[EP1_OUT_ODD_OFFSET], EP1_BUFF_SIZE);
+//    configureEp(EP1_IN_EVEN, &ep_data_buffer[EP1_IN_EVEN_OFFSET], EP1_BUFF_SIZE);
+//    configureEp(EP1_IN_ODD, &ep_data_buffer[EP1_IN_ODD_OFFSET], EP1_BUFF_SIZE);
+//    configureEp(EP2_IN_EVEN, &ep_data_buffer[EP2_IN_EVEN_OFFSET], EP2_BUFF_SIZE);
+//    configureEp(EP2_IN_ODD, &ep_data_buffer[EP2_IN_ODD_OFFSET], EP2_BUFF_SIZE);
+    
+    configureEp(EP1_OUT, &ep_data_buffer[EP1_OUT], EP1_BUFF_SIZE);
+    configureEp(EP1_IN, &ep_data_buffer[EP1_IN], EP1_BUFF_SIZE);
+    configureEp(EP2_IN, &ep_data_buffer[EP2_IN], EP2_BUFF_SIZE);
+
     UEP1 = EP_IN | EP_OUT | EP_HSHK;
     UEP2 = EP_IN | EP_HSHK;
-    usbEngageEndpointIn(1, 0);
-    usbEngageEndpointOut(1, EP1_BUFF_SIZE);
-    usbEngageEndpointIn(2, 0);
+    
+    usbEngageEp(EP1_IN, 0, SYNC_FORCE_DAT0);
+    usbEngageEp(EP1_OUT, EP1_BUFF_SIZE, SYNC_FORCE_DAT0);
+    usbEngageEp(EP2_IN, 0, SYNC_FORCE_DAT0);
     cdc_state = CDC_READY;
 }
 
@@ -110,22 +119,23 @@ void process_cdc_request(USB_SETUP_t* usb_setup) {
 }
 
 void send_cdc_buf(uint8_t* buf, uint8_t len) {
-    if (cdc_state == CDC_READY) {
-        put_fifo(&fifo_in, buf, len);
+    while (put_fifo(&fifo_in, buf, len) == -1) {
+        __delay_us(100);
     }
 }
 
 uint8_t handle_cdc_in() {
     uint8_t pkt_len = MIN(fifo_in.count, EP1_BUFF_SIZE);
     if (pkt_len > 0) {
-        get_fifo(&fifo_in, &ep_data_buffer[EP1_IN_OFFSET], pkt_len);
-        usbEngageEndpointIn(1, pkt_len);
+        get_fifo(&fifo_in, getEpBuff(EP1_IN), pkt_len);
+        usbEngageEp(EP1_IN, pkt_len, SYNC_AUTO);
     } else {
-        usbEngageEndpointIn(1, 0);
+        usbEngageEp(EP1_IN, 0, SYNC_AUTO);
     }
     return pkt_len;
 }
 
 void handle_cdc_out(uint8_t* buf, uint8_t len) {
     usb_cdc_callback(buf, len);
+    usbEngageEp(EP1_OUT, EP1_BUFF_SIZE, SYNC_AUTO);
 }

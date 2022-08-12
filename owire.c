@@ -177,26 +177,26 @@ char get_temp_by_ROM(uint8_t ROM_NO[8][8], int* temp, int index) {
     return -1;
 }
 
-char get_temp(int* temp) {
-    uint8_t tl, th;
-    if (OW_reset()) {
-        set_baudrate(uspbrghigh, ubrghhigh);
-        OW_write_byte(0xCC);
-        OW_write_byte(0xBE);
-        tl = OW_read_byte();
-        th = OW_read_byte();
-        OW_read_byte();
-        OW_read_byte();
-        OW_read_byte();
-        OW_read_byte();
-        OW_read_byte();
-        OW_read_byte();
-        OW_reset();
-        set_baudrate(uspbrghigh, ubrghhigh);
-        OW_write_byte(0xCC);
-        OW_write_byte(0x44);
-        *temp = (th << 8) | tl;
-        return 0;
-    }
-    return -1;
-}
+//char get_temp(int* temp) {
+//    uint8_t tl, th;
+//    if (OW_reset()) {
+//        set_baudrate(uspbrghigh, ubrghhigh);
+//        OW_write_byte(0xCC);
+//        OW_write_byte(0xBE);
+//        tl = OW_read_byte();
+//        th = OW_read_byte();
+//        OW_read_byte();
+//        OW_read_byte();
+//        OW_read_byte();
+//        OW_read_byte();
+//        OW_read_byte();
+//        OW_read_byte();
+//        OW_reset();
+//        set_baudrate(uspbrghigh, ubrghhigh);
+//        OW_write_byte(0xCC);
+//        OW_write_byte(0x44);
+//        *temp = (th << 8) | tl;
+//        return 0;
+//    }
+//    return -1;
+//}

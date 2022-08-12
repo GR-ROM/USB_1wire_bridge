@@ -1,17 +1,3 @@
-/*========================================
- * Author: Grinev Roman
- * Date: JUL.2018
- * File: usb.c
- * Description: USB device stack
- * Version: 0.4
- * Version history:
- * v0.1 initial release
- * v0.2 wrong windows device descriptor
- * request fixed
- * v0.3 STATUS stage now works
- * v0.4 GET_DESCRIPTOR bug fixed
- * Comments:
-=========================================*/
 #include "usb.h"
 #include "usbdesc.h"
 #include <xc.h>
@@ -24,9 +10,9 @@
 #define BD_BASE_ADDR 0x200
 #define BD_DATA_ADDR 0x280
 
-volatile BD_endpoint_t endpoints[EP_NUM_MAX] __at(BD_BASE_ADDR);
-volatile uint8_t ep_data_buffer[128] __at(BD_DATA_ADDR);
-USB_SETUP_t* usb_setup;
+volatile BD_entry_t endpoints[EP_NUM_MAX] __at(BD_BASE_ADDR);
+volatile uint8_t ep_data_buffer[160] __at(BD_DATA_ADDR);
+USB_SETUP_t usb_setup;
 
 static uint8_t dev_addr;
 static uint8_t control_needs_zlp;
@@ -51,58 +37,114 @@ static void STATUS_IN_TOKEN();
 static void reset_usb();
 
 static void SetupStage(USB_SETUP_t* usb_setup);
-static void DataInStage();
+static void DataInStage(bool firstPacket);
 static uint8_t DataOutStage();
 static void WaitForSetupStage(void);
 
+static uint16_t pp;
+static uint16_t dts;
+int lastEpIndex;
+
 static void process_standart_request(USB_SETUP_t *usb_setup);
 
-void usbEngageEndpointIn(uint8_t ep, uint8_t len) {
-    endpoints[ep].in.CNT = len;
-    endpoints[ep].in.STAT.Val &= _DTSMASK;
-    endpoints[ep].in.STAT.DTS =~ endpoints[ep].in.STAT.DTS;
-    endpoints[ep].in.STAT.Val |= _USIE | _DTSEN;
+uint8_t getDts(uint8_t ep) {
+    return (dts & (1 << ep)) >> ep;
 }
 
-void usbEngageEndpointOut(uint8_t ep, uint8_t len) {
-    endpoints[ep].out.CNT = len;
-    endpoints[ep].out.STAT.Val &= _DTSMASK;
-    endpoints[ep].out.STAT.DTS =~ endpoints[ep].out.STAT.DTS;
-    endpoints[ep].out.STAT.Val |= _USIE | _DTSEN;
+void setDts(uint8_t ep) {
+    dts |= 1 << ep;
+}
+
+void clrDts(uint8_t ep) {
+    dts &= ~(1 << ep);
+}
+
+void advanceDts(uint8_t ep) {
+    dts ^= 1 << ep;    
+}
+
+void resetAllDts() {
+    dts = 0;    
+}
+
+//uint8_t getPp(uint8_t ep) {
+//    return (pp & (1 << ep)) >> ep;
+//}
+
+void advancePp(uint8_t ep) {
+    //pp ^= 1 << ep;    
+}
+
+void resetAllPp() {
+    UCONbits.PPBRST = 1;
+    pp = 0;
+    UCONbits.PPBRST = 0;
+}
+
+void usbEngageEp(uint8_t ep, uint8_t len, uint8_t flags) {
+    uint8_t epIndex = ep; // (ep << 1) | getPp(ep);
+    endpoints[epIndex].CNT = len;
+    endpoints[epIndex].STAT.Val = 0;
+    if (flags & SYNC_AUTO) {
+        endpoints[epIndex].STAT.DTS = getDts(ep);
+    } else {
+        if (flags & SYNC_FORCE_DAT1) {
+            endpoints[epIndex].STAT.DTS = 1;
+            setDts(ep);
+        } else {
+            clrDts(ep);
+        }
+    }
+    advanceDts(ep);
+    advancePp(ep);        
+    endpoints[epIndex].STAT.Val |= _USIE | _DTSEN;
 }
 
 void usbEngageSetupEp0() {
-    endpoints[0].out.STAT.Val = 0x00;
-    endpoints[0].out.CNT = EP0_BUFF_SIZE;
-    endpoints[0].out.STAT.Val = _USIE | _DAT0 | _DTSEN;
-    endpoints[0].in.STAT.Val = 0;
-    UCONbits.PKTDIS = 0;
+    usbEngageEp(EP0_OUT, EP0_BUFF_SIZE, SYNC_FORCE_DAT0);
+    usbDisengageEp(EP0_IN);
 }
 
-void usbDisengageEP0() {
-    endpoints[0].in.STAT.UOWN = 0;
-    endpoints[0].out.STAT.UOWN = 0;
+void usbDisengageEp(uint8_t ep) {
+    endpoints[ep].STAT.UOWN = 0;
+   // endpoints[(ep << 1) | 1].STAT.UOWN = 0;
 }
 
-void copyPacketToEp(uint8_t ep, uint8_t *buf, uint8_t len) {
+void usbCopyPacketToEp(uint8_t ep, uint8_t *buf, uint8_t len) {
     if (buf != 0 && len > 0) {
-        memcpy(endpoints[ep].in.ADR, buf, len);
-    }    
+       // memcpy(endpoints[(ep << 1) | getPp(ep)].ADR, buf, len);
+         memcpy(endpoints[ep].ADR, buf, len);
+    }
+}
+
+uint8_t usbCopyPacketFromEp(uint8_t ep, uint8_t *buf) {
+    uint8_t epIndex = ep; //(ep << 1) | (getPp(ep) ^ 1);
+    uint8_t len = endpoints[epIndex].CNT;
+    if (buf != 0 && len > 0) {
+        memcpy(buf, endpoints[epIndex].ADR, len);
+    }
+    return len;
 }
 
 static void usb_status_out() {
-    endpoints[0].out.CNT = 0x00;
-    endpoints[0].out.STAT.Val = _USIE | _DTSEN | _DAT1;
+    usbEngageEp(EP0_OUT, 0, SYNC_FORCE_DAT1);
 }
 
 static void usb_status_in() {
-    endpoints[0].in.CNT = 0x00;
-    endpoints[0].in.STAT.Val = _USIE | _DTSEN | _DAT1;
+    usbEngageEp(EP0_IN, 0, SYNC_FORCE_DAT1);
 }
 
 void ep0_stall() {
-    endpoints[0].in.STAT.Val = _BSTALL | _USIE;
-    endpoints[0].out.STAT.Val = _BSTALL | _USIE;
+    uint8_t epIndex = EP0_IN; // (EP0_IN << 1) | getPp(EP0_IN);
+    endpoints[epIndex].STAT.Val = _BSTALL | _USIE;
+
+    epIndex = EP0_OUT; //(EP0_OUT << 1) | getPp(EP0_OUT);
+    endpoints[epIndex].STAT.Val = _BSTALL | _USIE;
+}
+
+uint8_t* getEpBuff(int ep) {
+    //return endpoints[(ep << 1) | getPp(ep)].ADR;
+    return endpoints[ep].ADR;
 }
 
 static void reset_usb() {
@@ -110,8 +152,14 @@ static void reset_usb() {
     UIR = 0x00;
     UIE = 0x00;
     
+#ifdef NO_PING_PONG    
     UCFGbits.PPB0=0;
     UCFGbits.PPB1=0;
+#endif
+#ifdef PING_PONG    
+    UCFGbits.PPB0 = 0;
+    UCFGbits.PPB1 = 0;
+#endif  
     UCFGbits.UPUEN=1;
 #ifdef LOW_SPEED
     UCFGbits.FSEN=0;
@@ -120,8 +168,7 @@ static void reset_usb() {
     UCFGbits.FSEN=1;
 #endif
     UCONbits.SUSPND=0;
-    UCONbits.RESUME=0;
-    UCONbits.PPBRST=0;
+    UCONbits.RESUME=0; 
     UCONbits.USBEN=1;
     UIRbits.TRNIF = 0; 
     UIRbits.TRNIF = 0;
@@ -136,11 +183,17 @@ static void reset_usb() {
     UIEbits.IDLEIE=1;
     USBIE = 1;
     // Enable EP0
-    configureEndpointOut(0, &ep_data_buffer[EP0_OUT_OFFSET], EP0_BUFF_SIZE);
-    configureEndpointIn(0, &ep_data_buffer[EP0_IN_OFFSET], EP0_BUFF_SIZE);
-    usb_setup = &ep_data_buffer[0];
+//    configureEp(EP0_OUT_EVEN, &ep_data_buffer[EP0_OUT_EVEN_OFFSET], EP0_BUFF_SIZE);
+//    configureEp(EP0_OUT_ODD, &ep_data_buffer[EP0_OUT_ODD_OFFSET], EP0_BUFF_SIZE);
+//    configureEp(EP0_IN_EVEN, &ep_data_buffer[EP0_IN_EVEN_OFFSET], EP0_BUFF_SIZE);
+//    configureEp(EP0_IN_ODD, &ep_data_buffer[EP0_IN_ODD_OFFSET], EP0_BUFF_SIZE);
+    configureEp(EP0_OUT, &ep_data_buffer[EP0_OUT], EP0_BUFF_SIZE);
+    configureEp(EP0_IN, &ep_data_buffer[EP0_IN], EP0_BUFF_SIZE);
     UEP0 = EP_IN | EP_OUT | EP_HSHK;
     state = ATTACHED;
+    
+    resetAllPp();
+    resetAllDts();
     // Prepare to receive first SETUP packet
     WaitForSetupStage();
 }
@@ -150,16 +203,10 @@ void init_usb() {
     reset_usb();
 }
 
-void configureEndpointIn(uint8_t ep, uint8_t* buf, uint8_t len) {
-    endpoints[ep].in.ADR = buf;
-    endpoints[ep].in.CNT = len;
-    endpoints[ep].in.STAT.Val = 0x00;
-}
-
-void configureEndpointOut(uint8_t ep, uint8_t* buf, uint8_t len) {
-    endpoints[ep].out.ADR = buf;
-    endpoints[ep].out.CNT = len;
-    endpoints[ep].out.STAT.Val = 0x00;
+void configureEp(uint8_t ep, uint8_t* buf, uint8_t len) {
+    endpoints[ep].ADR = buf;
+    endpoints[ep].CNT = len;
+    endpoints[ep].STAT.Val = 0x00;
 }
 
 void ctl_send(uint8_t* data, uint16_t len) {
@@ -167,14 +214,14 @@ void ctl_send(uint8_t* data, uint16_t len) {
     wCount = len;
     ubuf = data;
     ctl_stage = DATA_IN;
-    DataInStage();
+    DataInStage(true);
 }
 
 void ctl_recv(char* data, uint16_t len) {
     wCount = len;
     ubuf = data;
     ctl_stage = DATA_OUT;
-    usbEngageEndpointOut(0, EP1_BUFF_SIZE);
+    usbEngageEp(EP0_OUT, EP1_BUFF_SIZE, SYNC_FORCE_DAT1);
 }
 
 void ctl_ack() {
@@ -221,26 +268,21 @@ static void process_standart_request(USB_SETUP_t* usb_setup) {
             len = usb_setup->wLen;
             switch (usb_setup->wValueH) {
                 case USB_DEVICE_DESCRIPTOR_TYPE:
-                    len = sizeof (device_dsc);
-                    ctl_send(&device_dsc, len);
+                    ctl_send(&device_dsc, len > sizeof(device_dsc)? sizeof(device_dsc) : len);
                     break;
                 case USB_CONFIGURATION_DESCRIPTOR_TYPE:
-                    if (len>sizeof (cfgDescriptor)) len = sizeof (cfgDescriptor);
-                    ctl_send(&cfgDescriptor[0], len);
+                    ctl_send(&cfgDescriptor[0], len > sizeof(cfgDescriptor) ? sizeof(cfgDescriptor) : len);
                     break;
                 case USB_STRING_DESCRIPTOR_TYPE:
                     switch (usb_setup->wValueL) {
                         case 0:
-                            if (len>sizeof (strLanguage)) len = sizeof (strLanguage);
-                            ctl_send(&strLanguage[0], len);
+                            ctl_send(&strLanguage[0], len > sizeof(strLanguage) ? sizeof(strLanguage) : len);
                             break;
                         case 1:
-                            if (len>sizeof (strManufacturer)) len = sizeof (strManufacturer);
-                            ctl_send(&strManufacturer[0], len);
+                            ctl_send(&strManufacturer[0], len > sizeof(strManufacturer) ? sizeof(strManufacturer) : len);
                             break;
                         case 2:
-                            if (len>sizeof (strProduct)) len = sizeof (strProduct);
-                            ctl_send(&strProduct[0], len);
+                            ctl_send(&strProduct[0], len > sizeof(strProduct) ? sizeof(strProduct) : len);
                             break;
                         default:
                             ep0_stall();
@@ -284,7 +326,8 @@ static void process_standart_request(USB_SETUP_t* usb_setup) {
 }
 
 static void SetupStage(USB_SETUP_t* usb_setup) {
-    usbDisengageEP0();
+    usbDisengageEp(EP0_OUT);
+    usbDisengageEp(EP0_IN);
     ctl_stage = SETUP;
     if ((usb_setup->bmRequestType >> 5 & 0x3) == 0) {
         process_standart_request(usb_setup);
@@ -295,16 +338,16 @@ static void SetupStage(USB_SETUP_t* usb_setup) {
     UCONbits.PKTDIS = 0;
 }
 
-static void DataInStage() {
+static void DataInStage(bool firstPacket) {
     if (wCount > 0) {
         uint8_t current_transfer_len = MIN(wCount, EP0_BUFF_SIZE);
-        copyPacketToEp(0, ubuf, current_transfer_len);
-        usbEngageEndpointIn(0, current_transfer_len);
+        usbCopyPacketToEp(EP0_IN, ubuf, current_transfer_len);
+        usbEngageEp(EP0_IN, current_transfer_len, firstPacket ? SYNC_FORCE_DAT1 : SYNC_AUTO);
         ubuf += current_transfer_len;
         wCount -= current_transfer_len;
     } else {
         if (control_needs_zlp) {
-            usbEngageEndpointIn(0, 0);
+            usbEngageEp(EP0_IN, 0, SYNC_AUTO);
             control_needs_zlp = 0;
         } else {
             usb_status_out();
@@ -314,12 +357,11 @@ static void DataInStage() {
 }
 
 static uint8_t DataOutStage() {
-    uint8_t current_transfer_len = endpoints[0].out.CNT;
-    memcpy(ubuf, endpoints[0].out.ADR, current_transfer_len);
+    uint8_t current_transfer_len = usbCopyPacketFromEp(EP0_OUT, ubuf);
     ubuf += current_transfer_len;
     wCount -= current_transfer_len;
     if (wCount > 0) {
-        usbEngageEndpointOut(0, EP0_BUFF_SIZE);
+        usbEngageEp(EP0_OUT, EP0_BUFF_SIZE, SYNC_AUTO); 
     } else {
         usb_status_in();
         ctl_stage = _STATUS;
@@ -330,6 +372,7 @@ static uint8_t DataOutStage() {
 static void WaitForSetupStage() {
     ctl_stage = WAIT_SETUP;
     control_needs_zlp = 0;
+    resetAllPp();
     usbEngageSetupEp0();
 }
 
@@ -338,20 +381,18 @@ void USBStallHandler() {
 }
 
 void UnSuspend(void) {
-    UCONbits.SUSPND=0;   // Bring USB module out of power conserve
+    UCONbits.SUSPND=0;   
     UIEbits.ACTVIE=0;
     UIR &= 0xFB;
 }
 
 void Suspend(void) {
-    UIEbits.ACTVIE=1;    // Enable bus activity interrupt
+    UIEbits.ACTVIE=1;    
     UIR &= 0xEF;
-    UCONbits.SUSPND=1;   // Put USB module in power conserve
+    UCONbits.SUSPND=1;
 }
 
 void usb_poll() {
-    uint8_t PID = 0;
-    uint8_t ep = 0;
 //    if (UIRbits.ACTVIF) {
 //        if (state == SUSPEND) {
 //            state=CONFIGURED;
@@ -368,45 +409,44 @@ void usb_poll() {
 //    }
     if (UIRbits.STALLIF && UIEbits.STALLIE) USBStallHandler();
     if (UIRbits.URSTIF && UIEbits.URSTIE) reset_usb();
-
     while (UIRbits.TRNIF) {
-        ep = (uint8_t)(USTAT >> 3) & 0x7;
-        PID = USTATbits.DIR ? endpoints[ep].in.STAT.PID : endpoints[ep].out.STAT.PID;
+        uint8_t ep = (USTAT >> 3) & 0x7;
+        lastEpIndex = (USTAT >> 2) & 0x1F;
+        uint8_t PID = endpoints[lastEpIndex].STAT.PID;
         switch (ep) {
             case 0:
-            switch (PID) {
-                case SETUP_PID:
-                    SetupStage(usb_setup);
+                switch (PID) {
+                    case SETUP_PID:
+                        SetupStage(endpoints[EP0_OUT].ADR);
                     break;
-                case OUT_PID:
-                    if (ctl_stage == DATA_OUT) { 
-                        DataOutStage();
-                    } else {
-                        if (ctl_stage == _STATUS) {
-                            WaitForSetupStage();
+                    case OUT_PID:
+                        if (ctl_stage == DATA_OUT) { 
+                            DataOutStage();
+                        } else {
+                            if (ctl_stage == _STATUS) {
+                                WaitForSetupStage();
+                            }
                         }
-                    }
                     break;
-                case IN_PID:
-                    if (state == ADDRESS_PENDING) {
-                        state = ADDRESSED;
-                        UADDR = dev_addr;
-                    }
-                    if (ctl_stage == DATA_IN) {
-                        DataInStage(); 
-                    } else {
-                        if (ctl_stage == _STATUS) {
-                            WaitForSetupStage();
+                    case IN_PID:
+                        if (ctl_stage == DATA_IN) {
+                            DataInStage(false); 
+                        } else {
+                            if (ctl_stage == _STATUS) {
+                                if (state == ADDRESS_PENDING) {
+                                    state = ADDRESSED;
+                                    UADDR = dev_addr;
+                                }
+                                WaitForSetupStage();
+                            }
                         }
-                    }
                     break;
             }
             break;
             case 1:
                 switch (PID) {
                     case OUT_PID: 
-                        handle_cdc_out(endpoints[1].out.ADR, endpoints[1].out.CNT);
-                        usbEngageEndpointOut(1, EP1_BUFF_SIZE);
+                        handle_cdc_out(endpoints[EP1_OUT].ADR, endpoints[EP1_OUT].CNT);
                     break;
                     case IN_PID: 
                         handle_cdc_in();
@@ -416,7 +456,7 @@ void usb_poll() {
             case 2:
                 switch (PID) {
                     case IN_PID: 
-                        usbEngageEndpointIn(2, 0);
+                        usbEngageEp(EP2_IN, 0, SYNC_AUTO);
                     break;
                 }
             break;

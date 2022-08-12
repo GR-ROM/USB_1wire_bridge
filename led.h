@@ -12,17 +12,17 @@
 extern "C" {
 #endif
 
-#define LED1_ON PORTCbits.RC0=1;
-#define LED1_OFF PORTCbits.RC0=0;
-#define LED1_TOGGLE PORTCbits.RC0=~PORTCbits.RC0;
+#define LED1_ON PORTCbits.RC0 = 1;
+#define LED1_OFF PORTCbits.RC0 = 0;
+#define LED1_TOGGLE PORTCbits.RC0 = ~PORTCbits.RC0;
 
-#define LED2_ON PORTCbits.RC1=1;
-#define LED2_OFF PORTCbits.RC1=0;
-#define LED2_TOGGLE PORTCbits.RC1=~PORTCbits.RC1;
+#define LED2_ON PORTCbits.RC1 = 1;
+#define LED2_OFF PORTCbits.RC1 = 0;
+#define LED2_TOGGLE PORTCbits.RC1 = ~PORTCbits.RC1;
 
-#define LED3_ON PORTCbits.RC2=1;
-#define LED3_OFF PORTCbits.RC2=0;
-#define LED3_TOGGLE PORTCbits.RC2=~PORTCbits.RC2;
+#define LED3_ON PORTCbits.RC2 = 1;
+#define LED3_OFF PORTCbits.RC2 = 0;
+#define LED3_TOGGLE PORTCbits.RC2 = ~PORTCbits.RC2;
 
 
 #ifdef	__cplusplus

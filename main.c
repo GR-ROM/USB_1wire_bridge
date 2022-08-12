@@ -4,7 +4,6 @@
  *
  * Created on Jul 12, 2018, 10:27 PM
  */
-#define _XTAL_FREQ 48000000UL
 
 #include <xc.h>
 #include <stdint.h>
@@ -137,6 +136,7 @@ void main(void) {
     int dtemp = 0;
     int flag_no_sensor = 0;
     int itemp = 0;
+    
     TRISCbits.RC0 = 0;
     TRISCbits.RC1 = 0;
     TRISCbits.RC2 = 0;
@@ -160,7 +160,8 @@ void main(void) {
         c++;
         if (c == 2000000) {
             LED2_ON
-            for (int i = 0; i != devNum; i++) {
+            LED3_TOGGLE
+                for (int i = 0; i != devNum; i++) {
                 if (get_temp_by_ROM(ROM_NO, &dtemp, i) == 0) {
                     flag_no_sensor = 0;
                     //dtemp = 0x019A;

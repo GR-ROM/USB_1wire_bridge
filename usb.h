@@ -8,8 +8,6 @@
 #ifndef USB_H
 #define	USB_H
 
-#define NO_PING_PONG
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -17,6 +15,9 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+#define _XTAL_FREQ 48000000UL
+#define PING_PONG
+    
 #define GET_STATUS 0x00
 #define CLEAR_FEATURE 0x01
 #define SET_FEATURE 0x03
@@ -158,9 +159,7 @@ extern "C" {
 #define 	USB_TRANSFER_TYPE_ISOCHRONOUS   0x01
     
 #define _DEFAULT 0x80
-    
-    #define DESC_CONFIG_WORD(a) (a&0xFF),((a>>8)&0xFF)
-    
+#define DESC_CONFIG_WORD(a) (a&0xFF),((a>>8)&0xFF)
     
    
  typedef struct  _USB_DEVICE_DESCRIPTOR
@@ -214,7 +213,7 @@ typedef struct USB_ENDPOINT_DESCRIPTOR {
     unsigned char  bInterval;        // polling interval (ignored for control) 
 } USB_ENDPOINT_DESCRIPTOR_t;   
     
-typedef struct USB_SETUP{
+typedef struct USB_SETUP {
         uint8_t bmRequestType;
         uint8_t bRequest;
         uint8_t wValueL;
@@ -225,8 +224,7 @@ typedef struct USB_SETUP{
     }USB_SETUP_t;
     
     
-enum setupRequestType
-{
+enum setupRequestType {
     REQUEST_TYPE_STANDARD   = 0 << 5,
     REQUEST_TYPE_CLASS      = 1 << 5,
     REQUEST_TYPE_VENDOR     = 2 << 5,
@@ -259,12 +257,8 @@ enum setupRequestType
 
 #define _STAT_MASK  0xFF
 
-#define EP0_BUFF_SIZE 8 
-#define EP_NUM_MAX 3
-    
 /* BDT entry structure definition */
-typedef union BD_STAT
-{
+typedef union BD_STAT {
     uint8_t Val;
     struct{
         //If the CPU owns the buffer then these are the values
@@ -302,26 +296,27 @@ typedef union BD_STAT
         uint8_t* ADR;
     } BD_entry_t;
     
-    typedef struct BD_endpoint {
-        BD_entry_t out;
-        BD_entry_t in;
-    } BD_endpoint_t;
+    
+#define EP0_OUT 0
+#define EP0_IN 1
+#define EP1_OUT 2
+#define EP1_IN 3
+#define EP2_OUT 4
+#define EP2_IN 5
 
-    typedef struct ep_buffer {
-    char buffer[EP0_BUFF_SIZE];
-} ep_buffer_t;
+#define EP0_OUT_EVEN 0
+#define EP0_OUT_ODD 1
+#define EP0_IN_EVEN 2
+#define EP0_IN_ODD 3
+#define EP1_OUT_EVEN 4
+#define EP1_OUT_ODD 5
+#define EP1_IN_EVEN 6
+#define EP1_IN_ODD 7
+#define EP2_OUT_EVEN 8
+#define EP2_OUT_ODD 9
+#define EP2_IN_EVEN 10
+#define EP2_IN_ODD 11
 
-#if defined(NO_PING_PONG)
-typedef struct ep_data_buffer{
-    ep_buffer_t out;
-    ep_buffer_t in;
-} ep_data_buffer_t;
-#elif
-typedef struct ep_data_pp_buffer{
-    ep_buffer_t even_buf;
-    ep_buffer_t off_buf;
-} ep_data_pp_buffer_t;
-#endif
 
 typedef enum {
     DEFAULT = 0,
@@ -342,28 +337,34 @@ typedef enum {
     WAIT_SETUP
 } TRANSACTION_STAGE;  
 
-#define EP0 0
-#define EP1 1
-#define EP2 2
-
 #define EP0_BUFF_SIZE 8
 
-#if defined(NO_PING_PONG)
+#define SYNC_AUTO 1
+#define SYNC_FORCE_DAT0 0
+#define SYNC_FORCE_DAT1 2
+
+
 #define EP0_OUT_OFFSET 0
 #define EP0_IN_OFFSET EP0_BUFF_SIZE
 #define EP1_OUT_OFFSET EP0_IN_OFFSET+EP0_BUFF_SIZE
 #define EP1_IN_OFFSET EP1_OUT_OFFSET+EP1_BUFF_SIZE
 #define EP2_OUT_OFFSET EP1_IN_OFFSET+EP1_BUFF_SIZE
 #define EP2_IN_OFFSET EP2_OUT_OFFSET+EP2_BUFF_SIZE
-#elif defined(PING_PONG)
-#define EP0_OUT_EVEN_OFFSET 0
-#define EP0_OUT_ODD_OFFSET EP0_BUFF_SIZE
-#define EP0_IN_EVEN_OFFSET EP0_OUT_ODD_OFFSET+EP0_BUFF_SIZE
-#define EP0_IN_ODD_OFFSET EP0_IN_EVEN_OFFSET+EP0_BUFF_SIZE
-#define EP1_OUT_EVEN_OFFSET EP0_IN_ODD_OFFSET+EP0_BUFF_SIZE
-#define EP1_OUT_ODD_OFFSET EP1_OUT_EVEN_OFFSET+EP1_BUFF_SIZE
-#define EP1_IN_EVEN_OFFSET EP1_OUkT_ODD_OFFSET+EP1_BUFF_SIZE
-#define EP1_IN_ODD_OFFSET EP1_IN_EVEN_OFFSET+EP1_BUFF_SIZE
+#if defined(PING_PONG)
+//#define EP0_OUT_EVEN_OFFSET 0
+//#define EP0_OUT_ODD_OFFSET EP0_OUT_EVEN_OFFSET + EP0_BUFF_SIZE
+//#define EP0_IN_EVEN_OFFSET EP0_OUT_ODD_OFFSET + EP0_BUFF_SIZE
+//#define EP0_IN_ODD_OFFSET EP0_IN_EVEN_OFFSET + EP0_BUFF_SIZE
+//
+//#define EP1_OUT_EVEN_OFFSET EP0_IN_ODD_OFFSET + EP0_BUFF_SIZE
+//#define EP1_OUT_ODD_OFFSET EP1_OUT_EVEN_OFFSET + EP1_BUFF_SIZE
+//#define EP1_IN_EVEN_OFFSET EP1_OUT_ODD_OFFSET + EP1_BUFF_SIZE
+//#define EP1_IN_ODD_OFFSET EP1_IN_EVEN_OFFSET + EP1_BUFF_SIZE
+//
+//#define EP2_OUT_EVEN_OFFSET EP1_IN_ODD_OFFSET + EP1_BUFF_SIZE
+//#define EP2_OUT_ODD_OFFSET EP2_OUT_EVEN_OFFSET + EP2_BUFF_SIZE
+//#define EP2_IN_EVEN_OFFSET EP2_OUT_ODD_OFFSET + EP2_BUFF_SIZE
+//#define EP2_IN_ODD_OFFSET EP2_IN_EVEN_OFFSET + EP2_BUFF_SIZE
 #endif
     
 #define MIN(a,b) (((a)<(b))?(a):(b))   
@@ -372,13 +373,14 @@ void init_usb();
 void usb_poll();
 void ctl_ack();
 void ep0_stall();
-void configureEndpointOut(uint8_t ep, uint8_t* buf, uint8_t len);
-void configureEndpointIn(uint8_t ep, uint8_t* buf, uint8_t len);
-void usbEngageEndpointOut(uint8_t ep, uint8_t len);
-void usbEngageEndpointIn(uint8_t ep, uint8_t len);
+void configureEp(uint8_t ep, uint8_t* buf, uint8_t len);
+void usbEngageEp(uint8_t ep, uint8_t len, uint8_t flags);
+uint8_t* getEpBuff(int ep);
+void usbDisengageEp(uint8_t ep);
 void ctl_send(uint8_t* data, uint16_t len);
 void ctl_recv(char* data, uint16_t len);
-void copyPacketToEp(uint8_t ep, uint8_t *buf, uint8_t len);
+void usbCopyPacketToEp(uint8_t ep, uint8_t *buf, uint8_t len);
+uint8_t usbCopyPacketFromEp(uint8_t ep, uint8_t *buf);
 
 #ifdef	__cplusplus
 }

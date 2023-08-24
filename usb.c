@@ -3,14 +3,6 @@
  * Date: JUL.2018
  * File: usb.c
  * Description: USB device stack
- * Version: 0.4
- * Version history:
- * v0.1 initial release
- * v0.2 wrong windows device descriptor
- * request fixed
- * v0.3 STATUS stage now works
- * v0.4 GET_DESCRIPTOR bug fixed
- * Comments:
 =========================================*/
 #include "usb.h"
 #include "usbdesc.h"
